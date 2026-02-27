@@ -1,0 +1,8 @@
+[app]
+name = "openway"
+
+[build]
+dockerfile = "Dockerfile"
+
+[deploy]
+port = 3000
