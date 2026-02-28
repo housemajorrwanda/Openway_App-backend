@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import type { Request, Response } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -29,6 +30,11 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
+
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/', (_req: Request, res: Response) => {
+    res.json({ status: 'connected', app: 'OpenWay API', docs: '/docs' });
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }
