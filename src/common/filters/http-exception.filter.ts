@@ -47,10 +47,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
       }
     } else {
+      const message =
+        exception instanceof Error ? exception.message : String(exception);
       this.logger.error(
-        `Unhandled error on ${request.method} ${request.url}`,
-        exception instanceof Error ? exception.stack : String(exception),
+        `Unhandled error on ${request.method} ${request.url}: ${message}`,
+        exception instanceof Error ? exception.stack : undefined,
       );
+      // In non-production, surface the real error to aid debugging
+      if (process.env.NODE_ENV !== 'production') {
+        error = message;
+      }
     }
 
     const responseBody: Record<string, any> = { error, code };
