@@ -55,6 +55,14 @@ export class UserService {
     };
   }
 
+  async savePushToken(userId: string, token: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    user.expoPushToken = token;
+    await this.userRepo.save(user);
+    return { message: 'Push token saved' };
+  }
+
   async updateVehicle(userId: string, dto: UpdateVehicleDto) {
     let vehicle = await this.vehicleRepo.findOne({ where: { userId } });
     if (!vehicle) {

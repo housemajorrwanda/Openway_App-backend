@@ -18,6 +18,7 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { SavePushTokenDto } from './dto/save-push-token.dto';
 import { UserService } from './user.service';
 
 @ApiTags('User')
@@ -63,6 +64,20 @@ export class UserController {
     @Body() dto: UpdateProfileDto,
   ) {
     return this.userService.updateProfile(user.sub, dto);
+  }
+
+  @Patch('push-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Save Expo push token',
+    description: 'Call this on app launch after requesting notification permissions. Stores the device push token for the authenticated user.',
+  })
+  @ApiResponse({ status: 200, description: 'Push token saved' })
+  savePushToken(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SavePushTokenDto,
+  ) {
+    return this.userService.savePushToken(user.sub, dto.token);
   }
 
   @Patch('vehicle')
