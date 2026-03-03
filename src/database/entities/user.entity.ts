@@ -31,6 +31,9 @@ export class User {
   @Column({ name: 'avatar_url', type: 'varchar', length: 500, nullable: true })
   avatarUrl: string | null;
 
+  @Column({ name: 'expo_push_token', type: 'varchar', length: 200, nullable: true })
+  expoPushToken: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

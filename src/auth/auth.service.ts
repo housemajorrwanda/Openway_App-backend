@@ -221,7 +221,15 @@ export class AuthService {
 
     const otp = this.generateOtp();
     await this.redisService.set(`otp:${dto.email}`, otp, 300);
-    await this.emailService.sendOtp(dto.email, otp, 'verify');
+    try {
+      await this.emailService.sendOtp(dto.email, otp, 'verify');
+    } catch (err) {
+      this.logger.error(`Failed to send OTP to ${dto.email}`, err);
+      throw new HttpException(
+        { error: 'Failed to send OTP email. Please try again later.', code: 'EMAIL_SEND_FAILED' },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
 
     return { message: 'OTP sent' };
   }
