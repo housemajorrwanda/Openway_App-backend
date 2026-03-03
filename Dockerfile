@@ -13,4 +13,4 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/dist ./dist
 EXPOSE 3000
-CMD ["node", "dist/main"]
+CMD ["node", "--max-old-space-size=896", "dist/main"]
