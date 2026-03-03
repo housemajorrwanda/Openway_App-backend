@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  InternalServerErrorException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -46,13 +47,21 @@ export class AuthService {
   }
 
   private issueTokens(userId: string, email: string) {
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    if (!jwtSecret || !refreshSecret) {
+      throw new InternalServerErrorException({
+        error: 'JWT secrets are not configured',
+        code: 'MISSING_JWT_SECRET',
+      });
+    }
     const payload = { sub: userId, email };
     const accessToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_SECRET'),
+      secret: jwtSecret,
       expiresIn: '15m',
     });
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      secret: refreshSecret,
       expiresIn: '7d',
     });
     return { accessToken, refreshToken };
@@ -164,10 +173,14 @@ export class AuthService {
     }
 
     if (!user.isVerified) {
-      // Resend OTP
+      // Resend OTP — best-effort, don't let SMTP failure cause a 500
       const otp = this.generateOtp();
       await this.redisService.set(`otp:${user.email}`, otp, 300);
-      await this.emailService.sendOtp(user.email, otp, 'verify');
+      try {
+        await this.emailService.sendOtp(user.email, otp, 'verify');
+      } catch (err) {
+        this.logger.error(`Failed to resend OTP to ${user.email} during login`, err);
+      }
 
       throw new ForbiddenException({
         error: 'Email not verified',
