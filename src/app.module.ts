@@ -22,16 +22,17 @@ import { ParkingSpot } from './database/entities/parking-spot.entity';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('DATABASE_URL'),
-        entities: [User, Vehicle, TrafficLocation, ParkingSpot],
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        ssl:
-          configService.get<string>('NODE_ENV') === 'production'
-            ? { rejectUnauthorized: false }
-            : false,
-      }),
+      useFactory: (configService: ConfigService) => {
+        const dbUrl = configService.get<string>('DATABASE_URL') ?? '';
+        const requiresSsl = dbUrl.includes('sslmode=require');
+        return {
+          type: 'postgres',
+          url: dbUrl,
+          entities: [User, Vehicle, TrafficLocation, ParkingSpot],
+          synchronize: configService.get<string>('NODE_ENV') !== 'production',
+          ssl: requiresSsl ? { rejectUnauthorized: false } : false,
+        };
+      },
       inject: [ConfigService],
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
