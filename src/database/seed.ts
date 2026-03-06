@@ -28,12 +28,33 @@ async function seed() {
 
   // ── Traffic Locations ──
   const trafficLocations = [
-    { name: 'Gisimenti',       level: 'high',   latitude: -1.956, longitude: 30.0939 },
-    { name: 'Sonatubes',       level: 'medium', latitude: -1.974, longitude: 30.1044 },
-    { name: 'Gishushu',        level: 'low',    latitude: -1.954, longitude: 30.087  },
-    { name: 'Kimironko',       level: 'medium', latitude: -1.944, longitude: 30.103  },
-    { name: 'Nyabugogo',       level: 'high',   latitude: -1.942, longitude: 30.056  },
-    { name: 'Downtown Kigali', level: 'medium', latitude: -1.950, longitude: 30.060  },
+    // Original locations
+    { name: 'Gisimenti',            level: 'high',   latitude: -1.9560, longitude: 30.0939 },
+    { name: 'Sonatubes',            level: 'medium', latitude: -1.9740, longitude: 30.1044 },
+    { name: 'Gishushu',             level: 'low',    latitude: -1.9540, longitude: 30.0870 },
+    { name: 'Kimironko',            level: 'medium', latitude: -1.9440, longitude: 30.1030 },
+    { name: 'Nyabugogo',            level: 'high',   latitude: -1.9420, longitude: 30.0560 },
+    { name: 'Downtown Kigali',      level: 'medium', latitude: -1.9500, longitude: 30.0600 },
+    // Additional Kigali hotspots
+    { name: 'Remera',               level: 'high',   latitude: -1.9480, longitude: 30.1080 },
+    { name: 'Kacyiru',              level: 'medium', latitude: -1.9380, longitude: 30.0820 },
+    { name: 'Kimihurura',           level: 'low',    latitude: -1.9430, longitude: 30.0810 },
+    { name: 'Kicukiro',             level: 'medium', latitude: -1.9780, longitude: 30.0980 },
+    { name: 'Kanombe Junction',     level: 'high',   latitude: -1.9690, longitude: 30.1340 },
+    { name: 'Airport Road',         level: 'medium', latitude: -1.9630, longitude: 30.1300 },
+    { name: 'Kabuga',               level: 'low',    latitude: -1.9360, longitude: 30.1650 },
+    { name: 'Gatsata',              level: 'medium', latitude: -1.9260, longitude: 30.0650 },
+    { name: 'Muhima',               level: 'high',   latitude: -1.9520, longitude: 30.0540 },
+    { name: 'Biryogo',              level: 'medium', latitude: -1.9560, longitude: 30.0530 },
+    { name: 'Nyamirambo',           level: 'high',   latitude: -1.9680, longitude: 30.0490 },
+    { name: 'Gitega',               level: 'low',    latitude: -1.9600, longitude: 30.0570 },
+    { name: 'Masaka',               level: 'medium', latitude: -2.0020, longitude: 30.0790 },
+    { name: 'Nyanza Road Junction', level: 'low',    latitude: -2.0100, longitude: 30.0720 },
+    { name: 'Kibagabaga',           level: 'medium', latitude: -1.9340, longitude: 30.0990 },
+    { name: 'Gaculiro',             level: 'low',    latitude: -1.9310, longitude: 30.0870 },
+    { name: 'Rugando',              level: 'medium', latitude: -1.9390, longitude: 30.0950 },
+    { name: 'Zindiro',              level: 'low',    latitude: -1.9290, longitude: 30.1160 },
+    { name: 'Bugesera Road',        level: 'medium', latitude: -1.9990, longitude: 30.1200 },
   ];
 
   for (const loc of trafficLocations) {
