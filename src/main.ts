@@ -26,7 +26,10 @@ async function bootstrap() {
     .setTitle('OpenWay API')
     .setDescription('Kigali city navigation backend')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'access-token',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
