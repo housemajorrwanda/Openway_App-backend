@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EmailModule } from '../common/email/email.module';
+import { Otp } from '../database/entities/otp.entity';
 import { TokenBlacklist } from '../database/entities/token-blacklist.entity';
 import { User } from '../database/entities/user.entity';
 import { Vehicle } from '../database/entities/vehicle.entity';
@@ -12,7 +14,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Vehicle, TokenBlacklist]),
+    TypeOrmModule.forFeature([User, Vehicle, TokenBlacklist, Otp]),
+    EmailModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => ({
