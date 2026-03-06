@@ -17,6 +17,7 @@ import { TrafficLocation } from './database/entities/traffic-location.entity';
 import { ParkingSpot } from './database/entities/parking-spot.entity';
 import { Trip } from './database/entities/trip.entity';
 import { Place } from './database/entities/place.entity';
+import { Otp } from './database/entities/otp.entity';
 import { TokenBlacklist } from './database/entities/token-blacklist.entity';
 
 @Module({
@@ -41,6 +42,7 @@ import { TokenBlacklist } from './database/entities/token-blacklist.entity';
             Trip,
             Place,
             TokenBlacklist,
+            Otp,
           ],
           synchronize: configService.get<string>('NODE_ENV') !== 'production',
           ssl: requiresSsl ? { rejectUnauthorized: false } : false,

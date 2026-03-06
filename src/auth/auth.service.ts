@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -10,11 +12,17 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { LessThan, Repository } from 'typeorm';
+import { EmailService } from '../common/email/email.service';
+import { Otp } from '../database/entities/otp.entity';
 import { TokenBlacklist } from '../database/entities/token-blacklist.entity';
 import { User } from '../database/entities/user.entity';
 import { Vehicle } from '../database/entities/vehicle.entity';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -27,8 +35,11 @@ export class AuthService {
     private readonly vehicleRepo: Repository<Vehicle>,
     @InjectRepository(TokenBlacklist)
     private readonly blacklistRepo: Repository<TokenBlacklist>,
+    @InjectRepository(Otp)
+    private readonly otpRepo: Repository<Otp>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -64,6 +75,24 @@ export class AuthService {
     };
   }
 
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private async saveAndSendOtp(
+    email: string,
+    purpose: 'verify' | 'reset',
+  ): Promise<void> {
+    // Delete any existing OTPs for this email+purpose
+    await this.otpRepo.delete({ email, purpose });
+
+    const code = this.generateOtp();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    await this.otpRepo.save(this.otpRepo.create({ email, code, purpose, expiresAt }));
+    await this.emailService.sendOtp(email, code, purpose);
+  }
+
   // ─── Register ─────────────────────────────────────────────────────────────
 
   async register(dto: RegisterDto) {
@@ -84,7 +113,7 @@ export class AuthService {
       lastName: dto.lastName,
       email: dto.email,
       passwordHash,
-      isVerified: true,
+      isVerified: false,
     });
     const savedUser = await this.userRepo.save(user);
 
@@ -96,8 +125,64 @@ export class AuthService {
     });
     await this.vehicleRepo.save(vehicle);
 
-    const tokens = this.issueTokens(savedUser.id, savedUser.email);
-    return { ...tokens, user: this.userResponse(savedUser) };
+    await this.saveAndSendOtp(dto.email, 'verify');
+
+    return { message: 'Registration successful. Check your email for the verification code.' };
+  }
+
+  // ─── Verify OTP ───────────────────────────────────────────────────────────
+
+  async verifyOtp(dto: VerifyOtpDto) {
+    const otp = await this.otpRepo.findOne({
+      where: { email: dto.email, purpose: 'verify' },
+    });
+
+    if (!otp || otp.code !== dto.otp) {
+      throw new BadRequestException({
+        error: 'Invalid OTP',
+        code: 'INVALID_OTP',
+      });
+    }
+
+    if (otp.expiresAt < new Date()) {
+      await this.otpRepo.delete({ id: otp.id });
+      throw new BadRequestException({
+        error: 'OTP has expired',
+        code: 'OTP_EXPIRED',
+      });
+    }
+
+    await this.otpRepo.delete({ id: otp.id });
+
+    const user = await this.userRepo.findOne({ where: { email: dto.email } });
+    if (!user) {
+      throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    }
+
+    user.isVerified = true;
+    await this.userRepo.save(user);
+
+    const tokens = this.issueTokens(user.id, user.email);
+    return { ...tokens, user: this.userResponse(user) };
+  }
+
+  // ─── Resend OTP ───────────────────────────────────────────────────────────
+
+  async resendOtp(dto: ResendOtpDto) {
+    const user = await this.userRepo.findOne({ where: { email: dto.email } });
+    if (!user) {
+      throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException({
+        error: 'Email already verified',
+        code: 'ALREADY_VERIFIED',
+      });
+    }
+
+    await this.saveAndSendOtp(dto.email, 'verify');
+    return { message: 'Verification code resent. Check your email.' };
   }
 
   // ─── Login ────────────────────────────────────────────────────────────────
@@ -119,8 +204,64 @@ export class AuthService {
       });
     }
 
+    if (!user.isVerified) {
+      await this.saveAndSendOtp(user.email, 'verify');
+      throw new UnauthorizedException({
+        error: 'Email not verified. A new verification code has been sent.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
+
     const tokens = this.issueTokens(user.id, user.email);
     return { ...tokens, user: this.userResponse(user) };
+  }
+
+  // ─── Forgot Password ──────────────────────────────────────────────────────
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.userRepo.findOne({ where: { email: dto.email } });
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return { message: 'If that email exists, a reset code has been sent.' };
+    }
+
+    await this.saveAndSendOtp(dto.email, 'reset');
+    return { message: 'If that email exists, a reset code has been sent.' };
+  }
+
+  // ─── Reset Password ───────────────────────────────────────────────────────
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const otp = await this.otpRepo.findOne({
+      where: { email: dto.email, purpose: 'reset' },
+    });
+
+    if (!otp || otp.code !== dto.otp) {
+      throw new BadRequestException({
+        error: 'Invalid OTP',
+        code: 'INVALID_OTP',
+      });
+    }
+
+    if (otp.expiresAt < new Date()) {
+      await this.otpRepo.delete({ id: otp.id });
+      throw new BadRequestException({
+        error: 'OTP has expired',
+        code: 'OTP_EXPIRED',
+      });
+    }
+
+    await this.otpRepo.delete({ id: otp.id });
+
+    const user = await this.userRepo.findOne({ where: { email: dto.email } });
+    if (!user) {
+      throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    }
+
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    await this.userRepo.save(user);
+
+    return { message: 'Password reset successful. You can now log in.' };
   }
 
   // ─── Refresh Token ────────────────────────────────────────────────────────
@@ -163,7 +304,6 @@ export class AuthService {
             { token, expiresAt },
             { conflictPaths: ['token'] },
           );
-          // Clean up expired tokens opportunistically
           await this.blacklistRepo.delete({ expiresAt: LessThan(new Date()) });
         }
       }
