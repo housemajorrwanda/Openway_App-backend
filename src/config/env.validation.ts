@@ -43,6 +43,9 @@ class EnvironmentVariables {
   @IsString()
   OPENWEATHER_API_KEY: string;
 
+  @IsString()
+  GOOGLE_MAPS_API_KEY: string;
+
   @IsEnum(Environment)
   NODE_ENV: Environment;
 }
