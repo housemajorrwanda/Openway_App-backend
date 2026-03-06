@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { NotificationService } from '../common/notifications/notification.service';
 import { Place, PlaceType } from '../database/entities/place.entity';
 import { Trip, TripStatus } from '../database/entities/trip.entity';
@@ -28,9 +28,12 @@ export class TripService {
     let departureTime: Date | null = null;
     if (dto.departureTime) {
       const [hours, minutes] = dto.departureTime.split(':').map(Number);
-      const now = new Date();
-      now.setHours(hours, minutes, 0, 0);
-      departureTime = now;
+      const scheduled = new Date();
+      scheduled.setHours(hours, minutes, 0, 0);
+      if (scheduled <= new Date()) {
+        scheduled.setDate(scheduled.getDate() + 1);
+      }
+      departureTime = scheduled;
     }
 
     const trip = this.tripRepo.create({
@@ -47,10 +50,7 @@ export class TripService {
     return this.tripRepo.save(trip);
   }
 
-  async getTrips(
-    userId: string,
-    status?: TripStatus,
-  ): Promise<Trip[]> {
+  async getTrips(userId: string, status?: TripStatus): Promise<Trip[]> {
     const where: Record<string, any> = { userId };
     if (status) where['status'] = status;
     return this.tripRepo.find({
@@ -62,10 +62,16 @@ export class TripService {
   async getTrip(userId: string, tripId: string): Promise<Trip> {
     const trip = await this.tripRepo.findOne({ where: { id: tripId } });
     if (!trip) {
-      throw new NotFoundException({ error: 'Trip not found', code: 'TRIP_NOT_FOUND' });
+      throw new NotFoundException({
+        error: 'Trip not found',
+        code: 'TRIP_NOT_FOUND',
+      });
     }
     if (trip.userId !== userId) {
-      throw new ForbiddenException({ error: 'Access denied', code: 'FORBIDDEN' });
+      throw new ForbiddenException({
+        error: 'Access denied',
+        code: 'FORBIDDEN',
+      });
     }
     return trip;
   }
@@ -97,7 +103,7 @@ export class TripService {
     const distText = dto.distanceKm ? ` · ${dto.distanceKm} km` : '';
     const durText = dto.durationMin ? ` · ${dto.durationMin} min` : '';
     await this.notifications.sendToUser(userId, {
-      title: '✅ Trip completed',
+      title: 'Trip completed',
       body: `You arrived at ${trip.destinationName}${distText}${durText}.`,
       data: { type: 'TRIP_COMPLETED', tripId: trip.id },
     });
@@ -186,10 +192,16 @@ export class TripService {
   async deletePlace(userId: string, placeId: string): Promise<void> {
     const place = await this.placeRepo.findOne({ where: { id: placeId } });
     if (!place) {
-      throw new NotFoundException({ error: 'Place not found', code: 'PLACE_NOT_FOUND' });
+      throw new NotFoundException({
+        error: 'Place not found',
+        code: 'PLACE_NOT_FOUND',
+      });
     }
     if (place.userId !== userId) {
-      throw new ForbiddenException({ error: 'Access denied', code: 'FORBIDDEN' });
+      throw new ForbiddenException({
+        error: 'Access denied',
+        code: 'FORBIDDEN',
+      });
     }
     await this.placeRepo.remove(place);
   }
