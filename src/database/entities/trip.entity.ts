@@ -32,7 +32,7 @@ export class Trip {
   @Column({ name: 'origin_name', length: 255 })
   originName: string;
 
-  @Column({ name: 'origin_address', length: 500, nullable: true })
+  @Column({ name: 'origin_address', type: 'varchar', length: 500, nullable: true })
   originAddress: string | null;
 
   @Column({ name: 'origin_lat', type: 'decimal', precision: 10, scale: 7 })
@@ -45,7 +45,7 @@ export class Trip {
   @Column({ name: 'destination_name', length: 255 })
   destinationName: string;
 
-  @Column({ name: 'destination_address', length: 500, nullable: true })
+  @Column({ name: 'destination_address', type: 'varchar', length: 500, nullable: true })
   destinationAddress: string | null;
 
   @Column({ name: 'destination_lat', type: 'decimal', precision: 10, scale: 7 })
@@ -78,7 +78,7 @@ export class Trip {
   @Column({ name: 'duration_min', type: 'int', nullable: true })
   durationMin: number | null;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   note: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

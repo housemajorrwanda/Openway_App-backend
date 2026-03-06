@@ -36,6 +36,10 @@ async function bootstrap() {
     res.json({ status: 'connected', app: 'OpenWay API', docs: '/docs' });
   });
 
+  httpAdapter.get('/v1/health', (_req: Request, res: Response) => {
+    res.json({ status: 'ok' });
+  });
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

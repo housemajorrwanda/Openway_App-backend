@@ -28,7 +28,7 @@ export class Place {
   @Column({ length: 255 })
   name: string;
 
-  @Column({ length: 500, nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
   address: string | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 7 })
