@@ -15,12 +15,12 @@ export class TripScheduler {
     private readonly notifications: NotificationService,
   ) {}
 
-  // Runs every minute — checks for trips starting in ~15 minutes
-  @Cron(CronExpression.EVERY_MINUTE)
+  // Runs every 10 minutes — checks for trips starting in 10–20 minutes
+  @Cron('*/10 * * * *')
   async remindUpcomingTrips() {
     const now = new Date();
-    const windowStart = new Date(now.getTime() + 14 * 60 * 1000); // 14 min from now
-    const windowEnd = new Date(now.getTime() + 16 * 60 * 1000);   // 16 min from now
+    const windowStart = new Date(now.getTime() + 10 * 60 * 1000); // 10 min from now
+    const windowEnd = new Date(now.getTime() + 20 * 60 * 1000);   // 20 min from now
 
     const upcoming = await this.tripRepo.find({
       where: {
@@ -30,10 +30,10 @@ export class TripScheduler {
     });
 
     for (const trip of upcoming) {
-      this.logger.log(`Sending 15-min reminder for trip ${trip.id}`);
+      this.logger.log(`Sending reminder for trip ${trip.id}`);
       await this.notifications.sendToUser(trip.userId, {
-        title: '🗺 Trip reminder — 15 minutes',
-        body: `Your trip to ${trip.destinationName} starts in 15 minutes.`,
+        title: '🗺 Trip reminder',
+        body: `Your trip to ${trip.destinationName} is starting soon.`,
         data: { type: 'TRIP_REMINDER', tripId: trip.id },
       });
     }
