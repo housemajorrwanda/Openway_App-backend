@@ -28,13 +28,7 @@ export class Trip {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   user: User;
 
-  // Origin
-  @Column({ name: 'origin_name', length: 255 })
-  originName: string;
-
-  @Column({ name: 'origin_address', type: 'varchar', length: 500, nullable: true })
-  originAddress: string | null;
-
+  // Origin (user's current GPS location at trip creation)
   @Column({ name: 'origin_lat', type: 'decimal', precision: 10, scale: 7 })
   originLat: number;
 
@@ -45,18 +39,11 @@ export class Trip {
   @Column({ name: 'destination_name', length: 255 })
   destinationName: string;
 
-  @Column({ name: 'destination_address', type: 'varchar', length: 500, nullable: true })
-  destinationAddress: string | null;
-
   @Column({ name: 'destination_lat', type: 'decimal', precision: 10, scale: 7 })
   destinationLat: number;
 
   @Column({ name: 'destination_lng', type: 'decimal', precision: 10, scale: 7 })
   destinationLng: number;
-
-  // Scheduling
-  @Column({ name: 'scheduled_at', type: 'timestamptz', nullable: true })
-  scheduledAt: Date | null;
 
   @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
   startedAt: Date | null;

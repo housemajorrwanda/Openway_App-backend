@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { NotificationService } from '../common/notifications/notification.service';
 import { TrafficLocation } from '../database/entities/traffic-location.entity';
 import { Trip, TripStatus } from '../database/entities/trip.entity';
@@ -12,6 +12,9 @@ const TRAFFIC_ALERT_RADIUS_KM = 3;
 @Injectable()
 export class TripScheduler {
   private readonly logger = new Logger(TripScheduler.name);
+
+  // Tracks trip+hotspot pairs already alerted to avoid spamming same notification
+  private readonly alerted = new Set<string>();
 
   constructor(
     @InjectRepository(Trip)
@@ -32,14 +35,11 @@ export class TripScheduler {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  // Returns true if point (lat, lng) is within TRAFFIC_ALERT_RADIUS_KM of the
-  // straight line between origin and destination (simple midpoint check).
   private isNearRoute(
     originLat: number, originLng: number,
     destLat: number, destLng: number,
     pointLat: number, pointLng: number,
   ): boolean {
-    // Check proximity to origin, destination, and route midpoint
     const midLat = (originLat + destLat) / 2;
     const midLng = (originLng + destLng) / 2;
     return (
@@ -47,30 +47,6 @@ export class TripScheduler {
       this.haversineKm(destLat, destLng, pointLat, pointLng) <= TRAFFIC_ALERT_RADIUS_KM ||
       this.haversineKm(midLat, midLng, pointLat, pointLng) <= TRAFFIC_ALERT_RADIUS_KM
     );
-  }
-
-  // Runs every 10 minutes — checks for trips starting in 10–20 minutes
-  @Cron('*/10 * * * *')
-  async remindUpcomingTrips() {
-    const now = new Date();
-    const windowStart = new Date(now.getTime() + 10 * 60 * 1000);
-    const windowEnd = new Date(now.getTime() + 20 * 60 * 1000);
-
-    const upcoming = await this.tripRepo.find({
-      where: {
-        status: TripStatus.SCHEDULED,
-        scheduledAt: Between(windowStart, windowEnd),
-      },
-    });
-
-    for (const trip of upcoming) {
-      this.logger.log(`Sending reminder for trip ${trip.id}`);
-      await this.notifications.sendToUser(trip.userId, {
-        title: '🗺 Trip reminder',
-        body: `Your trip to ${trip.destinationName} is starting soon.`,
-        data: { type: 'TRIP_REMINDER', tripId: trip.id },
-      });
-    }
   }
 
   // Runs every 10 minutes — alerts users with IN_PROGRESS trips about high traffic on their route
@@ -83,19 +59,32 @@ export class TripScheduler {
 
     if (!activeTrips.length || !hotspots.length) return;
 
+    // Clean up alerted keys for trips that are no longer active
+    const activeTripIds = new Set(activeTrips.map((t) => t.id));
+    for (const key of this.alerted) {
+      const tripId = key.split(':')[0];
+      if (!activeTripIds.has(tripId)) this.alerted.delete(key);
+    }
+
     const highHotspots = hotspots.filter((h) => h.level === 'high');
     if (!highHotspots.length) return;
 
     for (const trip of activeTrips) {
-      const affectedHotspots = highHotspots.filter((h) =>
-        this.isNearRoute(
+      const affectedHotspots = highHotspots.filter((h) => {
+        // Skip if already notified for this trip+hotspot combo
+        const key = `${trip.id}:${h.id}`;
+        if (this.alerted.has(key)) return false;
+        return this.isNearRoute(
           Number(trip.originLat), Number(trip.originLng),
           Number(trip.destinationLat), Number(trip.destinationLng),
           h.latitude, h.longitude,
-        ),
-      );
+        );
+      });
 
       if (!affectedHotspots.length) continue;
+
+      // Mark as alerted so we don't re-notify on next cron tick
+      for (const h of affectedHotspots) this.alerted.add(`${trip.id}:${h.id}`);
 
       const names = affectedHotspots.map((h) => h.name).join(', ');
       const maxDelay = Math.max(...affectedHotspots.map((h) => h.delayMinutes ?? 0));

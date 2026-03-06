@@ -27,15 +27,11 @@ export class TripService {
   async createTrip(userId: string, dto: CreateTripDto): Promise<Trip> {
     const trip = this.tripRepo.create({
       userId,
-      originName: dto.originName,
-      originAddress: dto.originAddress ?? null,
       originLat: dto.originLat,
       originLng: dto.originLng,
       destinationName: dto.destinationName,
-      destinationAddress: dto.destinationAddress ?? null,
       destinationLat: dto.destinationLat,
       destinationLng: dto.destinationLng,
-      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
       note: dto.note ?? null,
       status: TripStatus.SCHEDULED,
     });
@@ -50,7 +46,7 @@ export class TripService {
     if (status) where['status'] = status;
     return this.tripRepo.find({
       where,
-      order: { scheduledAt: 'ASC', createdAt: 'DESC' },
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -120,7 +116,7 @@ export class TripService {
             { userId, status: TripStatus.SCHEDULED },
             { userId, status: TripStatus.IN_PROGRESS },
           ],
-          order: { scheduledAt: 'ASC' },
+          order: { createdAt: 'DESC' },
         }),
         this.tripRepo.find({
           where: { userId, status: TripStatus.COMPLETED },

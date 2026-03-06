@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Controller,
   Get,
@@ -80,5 +81,82 @@ export class TrafficController {
     const userLng = lng != null ? parseFloat(lng) : undefined;
     const radius = radiusKm != null ? parseFloat(radiusKm) : 15;
     return this.trafficService.getLocations(userLat, userLng, radius);
+  }
+
+  @Get('route')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get traffic along a route',
+    description:
+      'Returns traffic hotspots that fall within a corridor along the straight line from origin to destination. Hotspots are ordered from origin to destination.',
+  })
+  @ApiQuery({
+    name: 'originLat',
+    required: true,
+    type: Number,
+    example: -1.9441,
+  })
+  @ApiQuery({
+    name: 'originLng',
+    required: true,
+    type: Number,
+    example: 30.0619,
+  })
+  @ApiQuery({
+    name: 'destLat',
+    required: true,
+    type: Number,
+    example: -1.9536,
+  })
+  @ApiQuery({
+    name: 'destLng',
+    required: true,
+    type: Number,
+    example: 30.0946,
+  })
+  @ApiQuery({
+    name: 'corridorKm',
+    required: false,
+    type: Number,
+    description: 'Max distance from route line in km (default 2)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Traffic hotspots along the route',
+    schema: {
+      example: {
+        worstLevel: 'high',
+        totalDelayMinutes: 15,
+        dataReady: true,
+        hotspots: [
+          {
+            id: 'uuid',
+            name: 'Nyabugogo',
+            level: 'high',
+            latitude: -1.9344,
+            longitude: 30.0544,
+            distanceFromRouteKm: 0.3,
+            distanceFromOriginKm: 1.1,
+            delayMinutes: 15,
+          },
+        ],
+      },
+    },
+  })
+  getRouteTraffic(
+    @Query('originLat') originLat: string,
+    @Query('originLng') originLng: string,
+    @Query('destLat') destLat: string,
+    @Query('destLng') destLng: string,
+    @Query('corridorKm') corridorKm?: string,
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return this.trafficService.getRouteTraffic(
+      parseFloat(originLat),
+      parseFloat(originLng),
+      parseFloat(destLat),
+      parseFloat(destLng),
+      corridorKm != null ? parseFloat(corridorKm) : 2,
+    );
   }
 }
