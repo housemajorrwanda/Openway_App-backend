@@ -25,6 +25,14 @@ export class TripService {
   // ─── Trips ────────────────────────────────────────────────────────────────
 
   async createTrip(userId: string, dto: CreateTripDto): Promise<Trip> {
+    let departureTime: Date | null = null;
+    if (dto.departureTime) {
+      const [hours, minutes] = dto.departureTime.split(':').map(Number);
+      const now = new Date();
+      now.setHours(hours, minutes, 0, 0);
+      departureTime = now;
+    }
+
     const trip = this.tripRepo.create({
       userId,
       originLat: dto.originLat,
@@ -32,6 +40,7 @@ export class TripService {
       destinationName: dto.destinationName,
       destinationLat: dto.destinationLat,
       destinationLng: dto.destinationLng,
+      departureTime,
       note: dto.note ?? null,
       status: TripStatus.SCHEDULED,
     });
