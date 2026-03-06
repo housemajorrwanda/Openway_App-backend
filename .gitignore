@@ -55,5 +55,8 @@ coverage/*.json
 coverage/*.xml
 coverage/*.html
 
+# claude
+.claude
+
 # .qodo
 .qodo
