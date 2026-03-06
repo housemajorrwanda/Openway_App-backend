@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { validate } from './config/env.validation';
-import { RedisModule } from './common/redis/redis.module';
 import { NotificationModule } from './common/notifications/notification.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
@@ -18,6 +17,7 @@ import { TrafficLocation } from './database/entities/traffic-location.entity';
 import { ParkingSpot } from './database/entities/parking-spot.entity';
 import { Trip } from './database/entities/trip.entity';
 import { Place } from './database/entities/place.entity';
+import { TokenBlacklist } from './database/entities/token-blacklist.entity';
 
 @Module({
   imports: [
@@ -33,7 +33,15 @@ import { Place } from './database/entities/place.entity';
         return {
           type: 'postgres',
           url: dbUrl,
-          entities: [User, Vehicle, TrafficLocation, ParkingSpot, Trip, Place],
+          entities: [
+            User,
+            Vehicle,
+            TrafficLocation,
+            ParkingSpot,
+            Trip,
+            Place,
+            TokenBlacklist,
+          ],
           synchronize: configService.get<string>('NODE_ENV') !== 'production',
           ssl: requiresSsl ? { rejectUnauthorized: false } : false,
         };
@@ -43,7 +51,6 @@ import { Place } from './database/entities/place.entity';
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 20 }]),
     NotificationModule,
-    RedisModule,
     AuthModule,
     UserModule,
     TrafficModule,

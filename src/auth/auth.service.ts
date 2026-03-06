@@ -9,8 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
-import { Repository } from 'typeorm';
-import { RedisService } from '../common/redis/redis.service';
+import { LessThan, Repository } from 'typeorm';
+import { TokenBlacklist } from '../database/entities/token-blacklist.entity';
 import { User } from '../database/entities/user.entity';
 import { Vehicle } from '../database/entities/vehicle.entity';
 import { LoginDto } from './dto/login.dto';
@@ -25,7 +25,8 @@ export class AuthService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Vehicle)
     private readonly vehicleRepo: Repository<Vehicle>,
-    private readonly redisService: RedisService,
+    @InjectRepository(TokenBlacklist)
+    private readonly blacklistRepo: Repository<TokenBlacklist>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -156,9 +157,14 @@ export class AuthService {
     try {
       const payload = this.jwtService.decode<{ exp: number }>(token);
       if (payload?.exp) {
-        const ttl = payload.exp - Math.floor(Date.now() / 1000);
-        if (ttl > 0) {
-          await this.redisService.set(`blacklist:${token}`, '1', ttl);
+        const expiresAt = new Date(payload.exp * 1000);
+        if (expiresAt > new Date()) {
+          await this.blacklistRepo.upsert(
+            { token, expiresAt },
+            { conflictPaths: ['token'] },
+          );
+          // Clean up expired tokens opportunistically
+          await this.blacklistRepo.delete({ expiresAt: LessThan(new Date()) });
         }
       }
     } catch {

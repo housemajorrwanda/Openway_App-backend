@@ -5,8 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ExtractJwt, Strategy, StrategyOptionsWithRequest } from 'passport-jwt';
 import { Repository } from 'typeorm';
 import { User } from '../../database/entities/user.entity';
+import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
 import { JwtPayload } from '../../common/decorators/current-user.decorator';
-import { RedisService } from '../../common/redis/redis.service';
 import { Request } from 'express';
 
 const strategyOptions: StrategyOptionsWithRequest = {
@@ -22,7 +22,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     configService: ConfigService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    private readonly redisService: RedisService,
+    @InjectRepository(TokenBlacklist)
+    private readonly blacklistRepo: Repository<TokenBlacklist>,
   ) {
     super({
       ...strategyOptions,
@@ -34,8 +35,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const authHeader = req.headers['authorization'] as string;
     const token = authHeader?.split(' ')[1];
     if (token) {
-      const isBlacklisted = await this.redisService.exists(`blacklist:${token}`);
-      if (isBlacklisted) {
+      const blacklisted = await this.blacklistRepo.findOne({
+        where: { token },
+      });
+      if (blacklisted) {
         throw new UnauthorizedException({
           error: 'Token has been revoked',
           code: 'TOKEN_REVOKED',
