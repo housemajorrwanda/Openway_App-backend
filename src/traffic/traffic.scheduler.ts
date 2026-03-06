@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,7 +18,7 @@ const HIGH_SLOW_PERCENT = 0.4;   // 40%+ slow or jammed → high
 const MEDIUM_SLOW_PERCENT = 0.15; // 15%+ slow or jammed → medium
 
 @Injectable()
-export class TrafficScheduler {
+export class TrafficScheduler implements OnModuleInit {
   private readonly logger = new Logger(TrafficScheduler.name);
   private readonly apiKey: string;
 
@@ -29,6 +29,12 @@ export class TrafficScheduler {
     private readonly configService: ConfigService,
   ) {
     this.apiKey = this.configService.get<string>('GOOGLE_MAPS_API_KEY') ?? '';
+  }
+
+  // Run once on startup so traffic data is never null after a fresh deploy
+  async onModuleInit() {
+    this.logger.log('Running initial traffic refresh on startup...');
+    await this.refreshTrafficLevels();
   }
 
   // Runs every 10 minutes
@@ -83,7 +89,6 @@ export class TrafficScheduler {
       }
 
       // Probe route: origin slightly north of hotspot → destination slightly south
-      // This creates a short route *through* the location to read segment speeds
       const origin = { latitude: loc.latitude - PROBE_OFFSET, longitude: loc.longitude };
       const destination = { latitude: loc.latitude + PROBE_OFFSET, longitude: loc.longitude };
 

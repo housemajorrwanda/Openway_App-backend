@@ -1,7 +1,15 @@
-import { Controller, Get, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -18,13 +26,31 @@ export class TrafficController {
   @Get('locations')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Get all Kigali traffic locations',
+    summary: 'Get nearby Kigali traffic locations',
     description:
-      'Returns all monitored traffic locations in Kigali with their current congestion level (low / medium / high).',
+      'Returns traffic hotspots sorted by distance from the user. Pass lat/lng to get distance-aware results filtered within radiusKm (default 15 km). Without lat/lng all locations are returned.',
+  })
+  @ApiQuery({
+    name: 'lat',
+    required: false,
+    type: Number,
+    description: 'User latitude',
+  })
+  @ApiQuery({
+    name: 'lng',
+    required: false,
+    type: Number,
+    description: 'User longitude',
+  })
+  @ApiQuery({
+    name: 'radiusKm',
+    required: false,
+    type: Number,
+    description: 'Search radius in km (default 15)',
   })
   @ApiResponse({
     status: 200,
-    description: 'List of traffic locations',
+    description: 'List of traffic locations sorted by distance',
     schema: {
       example: {
         locations: [
@@ -34,6 +60,7 @@ export class TrafficController {
             level: 'high',
             latitude: -1.956,
             longitude: 30.0939,
+            distanceFromUserKm: 1.2,
             distanceKm: 6.8,
             durationMinutes: 14,
             durationInTrafficMinutes: 22,
@@ -44,7 +71,14 @@ export class TrafficController {
       },
     },
   })
-  getLocations() {
-    return this.trafficService.getLocations();
+  getLocations(
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radiusKm') radiusKm?: string,
+  ) {
+    const userLat = lat != null ? parseFloat(lat) : undefined;
+    const userLng = lng != null ? parseFloat(lng) : undefined;
+    const radius = radiusKm != null ? parseFloat(radiusKm) : 15;
+    return this.trafficService.getLocations(userLat, userLng, radius);
   }
 }
