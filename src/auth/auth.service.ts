@@ -117,6 +117,19 @@ export class AuthService {
     });
     const savedUser = await this.userRepo.save(user);
 
+    if (dto.licensePlate) {
+      const existingPlate = await this.vehicleRepo.findOne({
+        where: { licensePlate: dto.licensePlate },
+      });
+      if (existingPlate) {
+        await this.userRepo.delete({ id: savedUser.id });
+        throw new ConflictException({
+          error: 'License plate already registered',
+          code: 'LICENSE_PLATE_EXISTS',
+        });
+      }
+    }
+
     const vehicle = this.vehicleRepo.create({
       userId: savedUser.id,
       make: dto.vehicleMake,

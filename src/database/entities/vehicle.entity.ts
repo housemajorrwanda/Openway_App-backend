@@ -22,7 +22,7 @@ export class Vehicle {
   @Column({ length: 50 })
   model: string;
 
-  @Column({ name: 'license_plate', type: 'varchar', length: 20, nullable: true })
+  @Column({ name: 'license_plate', type: 'varchar', length: 20, nullable: true, unique: true })
   licensePlate: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
