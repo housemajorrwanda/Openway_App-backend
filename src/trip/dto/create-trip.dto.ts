@@ -4,6 +4,7 @@ import {
   IsLongitude,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -28,6 +29,15 @@ export class CreateTripDto {
   @ApiProperty({ example: 30.0946, description: 'Destination longitude' })
   @IsLongitude()
   destinationLng: number;
+
+  @ApiPropertyOptional({
+    example: '08:30',
+    description: "Departure time in HH:mm (24h format). Backend combines with today's date. Omit for immediate trip.",
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, { message: 'departureTime must be HH:mm (e.g. 08:30)' })
+  departureTime?: string;
 
   @ApiPropertyOptional({ example: 'Pick up kids after school' })
   @IsOptional()

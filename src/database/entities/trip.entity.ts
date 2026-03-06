@@ -45,6 +45,10 @@ export class Trip {
   @Column({ name: 'destination_lng', type: 'decimal', precision: 10, scale: 7 })
   destinationLng: number;
 
+  // Departure time — user picks a time (e.g. "08:30"), backend combines with today's date
+  @Column({ name: 'departure_time', type: 'timestamptz', nullable: true })
+  departureTime: Date | null;
+
   @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
   startedAt: Date | null;
 

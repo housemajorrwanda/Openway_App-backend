@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import { NotificationService } from '../common/notifications/notification.service';
 import { TrafficLocation } from '../database/entities/traffic-location.entity';
 import { Trip, TripStatus } from '../database/entities/trip.entity';
@@ -49,6 +49,79 @@ export class TripScheduler {
     );
   }
 
+  // Runs every minute — reminds users 15 min before their departure time
+  @Cron('* * * * *')
+  async remindUpcomingTrips() {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + 14 * 60 * 1000); // 14 min from now
+    const windowEnd = new Date(now.getTime() + 15 * 60 * 1000);   // 15 min from now
+
+    const upcoming = await this.tripRepo.find({
+      where: {
+        status: TripStatus.SCHEDULED,
+        departureTime: Between(windowStart, windowEnd),
+      },
+    });
+
+    for (const trip of upcoming) {
+      this.logger.log(`Sending departure reminder for trip ${trip.id}`);
+      await this.notifications.sendToUser(trip.userId, {
+        title: '🕐 Time to leave!',
+        body: `Your trip to ${trip.destinationName} starts in 15 minutes.`,
+        data: { type: 'TRIP_REMINDER', tripId: trip.id },
+      });
+    }
+  }
+
+  // Runs every 10 minutes — warns users about traffic on their route 30 min before departure
+  @Cron('*/10 * * * *')
+  async warnTrafficBeforeDeparture() {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + 20 * 60 * 1000); // 20 min from now
+    const windowEnd = new Date(now.getTime() + 40 * 60 * 1000);   // 40 min from now
+
+    const [upcoming, hotspots] = await Promise.all([
+      this.tripRepo.find({
+        where: {
+          status: TripStatus.SCHEDULED,
+          departureTime: Between(windowStart, windowEnd),
+        },
+      }),
+      this.trafficRepo.find(),
+    ]);
+
+    if (!upcoming.length || !hotspots.length) return;
+
+    const highHotspots = hotspots.filter((h) => h.level === 'high' || h.level === 'medium');
+
+    for (const trip of upcoming) {
+      const affected = highHotspots.filter((h) =>
+        this.isNearRoute(
+          Number(trip.originLat), Number(trip.originLng),
+          Number(trip.destinationLat), Number(trip.destinationLng),
+          h.latitude, h.longitude,
+        ),
+      );
+
+      if (!affected.length) continue;
+
+      const names = affected.map((h) => h.name).join(', ');
+      const maxDelay = Math.max(...affected.map((h) => h.delayMinutes ?? 0));
+      const delayText = maxDelay > 0 ? ` (~${maxDelay} min delay)` : '';
+      const departureStr = trip.departureTime
+        ? trip.departureTime.toTimeString().slice(0, 5)
+        : '';
+
+      await this.notifications.sendToUser(trip.userId, {
+        title: '🚦 Traffic ahead before your trip',
+        body: `Traffic at ${names}${delayText}. Consider leaving earlier for your ${departureStr} trip to ${trip.destinationName}.`,
+        data: { type: 'PRE_TRIP_TRAFFIC_ALERT', tripId: trip.id },
+      });
+
+      this.logger.log(`Pre-departure traffic alert for trip ${trip.id}: ${names}`);
+    }
+  }
+
   // Runs every 10 minutes — alerts users with IN_PROGRESS trips about high traffic on their route
   @Cron('*/10 * * * *')
   async alertTrafficOnActiveTrips() {
@@ -71,7 +144,6 @@ export class TripScheduler {
 
     for (const trip of activeTrips) {
       const affectedHotspots = highHotspots.filter((h) => {
-        // Skip if already notified for this trip+hotspot combo
         const key = `${trip.id}:${h.id}`;
         if (this.alerted.has(key)) return false;
         return this.isNearRoute(
@@ -83,7 +155,6 @@ export class TripScheduler {
 
       if (!affectedHotspots.length) continue;
 
-      // Mark as alerted so we don't re-notify on next cron tick
       for (const h of affectedHotspots) this.alerted.add(`${trip.id}:${h.id}`);
 
       const names = affectedHotspots.map((h) => h.name).join(', ');
