@@ -90,7 +90,8 @@ export class AuthService {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     await this.otpRepo.save(this.otpRepo.create({ email, code, purpose, expiresAt }));
-    await this.emailService.sendOtp(email, code, purpose);
+    // await this.emailService.sendOtp(email, code, purpose); // TODO: re-enable when email is working
+    this.logger.log(`OTP for ${email} [${purpose}]: ${code}`);
   }
 
   // ─── Register ─────────────────────────────────────────────────────────────
@@ -108,27 +109,26 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    const user = this.userRepo.create({
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      email: dto.email,
-      passwordHash,
-      isVerified: false,
-    });
-    const savedUser = await this.userRepo.save(user);
-
     if (dto.licensePlate) {
       const existingPlate = await this.vehicleRepo.findOne({
         where: { licensePlate: dto.licensePlate },
       });
       if (existingPlate) {
-        await this.userRepo.delete({ id: savedUser.id });
         throw new ConflictException({
           error: 'License plate already registered',
           code: 'LICENSE_PLATE_EXISTS',
         });
       }
     }
+
+    const user = this.userRepo.create({
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      email: dto.email,
+      passwordHash,
+      isVerified: true,
+    });
+    const savedUser = await this.userRepo.save(user);
 
     const vehicle = this.vehicleRepo.create({
       userId: savedUser.id,
@@ -138,9 +138,8 @@ export class AuthService {
     });
     await this.vehicleRepo.save(vehicle);
 
-    await this.saveAndSendOtp(dto.email, 'verify');
-
-    return { message: 'Registration successful. Check your email for the verification code.' };
+    const tokens = this.issueTokens(savedUser.id, savedUser.email);
+    return { ...tokens, user: this.userResponse(savedUser) };
   }
 
   // ─── Verify OTP ───────────────────────────────────────────────────────────
@@ -214,14 +213,6 @@ export class AuthService {
       throw new UnauthorizedException({
         error: 'Invalid credentials',
         code: 'INVALID_CREDENTIALS',
-      });
-    }
-
-    if (!user.isVerified) {
-      await this.saveAndSendOtp(user.email, 'verify');
-      throw new UnauthorizedException({
-        error: 'Email not verified. A new verification code has been sent.',
-        code: 'EMAIL_NOT_VERIFIED',
       });
     }
 

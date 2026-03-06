@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
   IsOptional,
@@ -49,9 +49,9 @@ export class RegisterDto {
   @MaxLength(50)
   vehicleModel: string;
 
-  @ApiPropertyOptional({ example: 'RAB 123A', description: 'License plate' })
-  @IsOptional()
+  @ApiProperty({ example: 'RAB 123A', description: 'License plate (unique)' })
   @IsString()
+  @MinLength(1)
   @MaxLength(20)
-  licensePlate?: string;
+  licensePlate: string;
 }
