@@ -49,10 +49,12 @@ export class RoadClosureController {
   // ─── Admin only ───────────────────────────────────────────────────────────
 
   @Get('all')
-  @UseGuards(RolesGuard)
-  @Roles('admin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Admin] Get all road closures including resolved' })
+  @ApiOperation({
+    summary: 'Get all road closures including resolved',
+    description: 'Returns all road closures regardless of status.',
+  })
+  @ApiResponse({ status: 200, description: 'All road closures' })
   getAll() {
     return this.service.getAll();
   }
