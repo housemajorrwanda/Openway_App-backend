@@ -11,6 +11,8 @@ import { TrafficModule } from './traffic/traffic.module';
 import { ParkingModule } from './parking/parking.module';
 import { WeatherModule } from './weather/weather.module';
 import { TripModule } from './trip/trip.module';
+import { RoadClosureModule } from './road-closure/road-closure.module';
+import { PoiModule } from './poi/poi.module';
 import { User } from './database/entities/user.entity';
 import { Vehicle } from './database/entities/vehicle.entity';
 import { TrafficLocation } from './database/entities/traffic-location.entity';
@@ -19,6 +21,10 @@ import { Trip } from './database/entities/trip.entity';
 import { Place } from './database/entities/place.entity';
 import { Otp } from './database/entities/otp.entity';
 import { TokenBlacklist } from './database/entities/token-blacklist.entity';
+import { RoadClosure } from './database/entities/road-closure.entity';
+import { PointOfInterest } from './database/entities/point-of-interest.entity';
+import { FamilyContact } from './database/entities/family-contact.entity';
+import { Insurance } from './database/entities/insurance.entity';
 
 @Module({
   imports: [
@@ -43,6 +49,10 @@ import { TokenBlacklist } from './database/entities/token-blacklist.entity';
             Place,
             TokenBlacklist,
             Otp,
+            RoadClosure,
+            PointOfInterest,
+            FamilyContact,
+            Insurance,
           ],
           synchronize: configService.get<string>('NODE_ENV') !== 'production',
           ssl: requiresSsl ? { rejectUnauthorized: false } : false,
@@ -59,6 +69,8 @@ import { TokenBlacklist } from './database/entities/token-blacklist.entity';
     ParkingModule,
     WeatherModule,
     TripModule,
+    RoadClosureModule,
+    PoiModule,
   ],
 })
 export class AppModule {}

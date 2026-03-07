@@ -63,7 +63,13 @@ export class Trip {
   })
   status: TripStatus;
 
-  @Column({ name: 'distance_km', type: 'decimal', precision: 8, scale: 2, nullable: true })
+  @Column({
+    name: 'distance_km',
+    type: 'decimal',
+    precision: 8,
+    scale: 2,
+    nullable: true,
+  })
   distanceKm: number | null;
 
   @Column({ name: 'duration_min', type: 'int', nullable: true })

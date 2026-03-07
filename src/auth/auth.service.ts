@@ -44,7 +44,7 @@ export class AuthService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private issueTokens(userId: string, email: string) {
+  private issueTokens(userId: string, email: string, role: string = 'user') {
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
     if (!jwtSecret || !refreshSecret) {
@@ -53,7 +53,7 @@ export class AuthService {
         code: 'MISSING_JWT_SECRET',
       });
     }
-    const payload = { sub: userId, email };
+    const payload = { sub: userId, email, role };
     const accessToken = this.jwtService.sign(payload, {
       secret: jwtSecret,
       expiresIn: '15m',
@@ -72,6 +72,7 @@ export class AuthService {
       lastName: user.lastName,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      role: user.role,
     };
   }
 
@@ -138,7 +139,7 @@ export class AuthService {
     });
     await this.vehicleRepo.save(vehicle);
 
-    const tokens = this.issueTokens(savedUser.id, savedUser.email);
+    const tokens = this.issueTokens(savedUser.id, savedUser.email, savedUser.role);
     return { ...tokens, user: this.userResponse(savedUser) };
   }
 
@@ -174,7 +175,7 @@ export class AuthService {
     user.isVerified = true;
     await this.userRepo.save(user);
 
-    const tokens = this.issueTokens(user.id, user.email);
+    const tokens = this.issueTokens(user.id, user.email, user.role);
     return { ...tokens, user: this.userResponse(user) };
   }
 
@@ -216,7 +217,7 @@ export class AuthService {
       });
     }
 
-    const tokens = this.issueTokens(user.id, user.email);
+    const tokens = this.issueTokens(user.id, user.email, user.role);
     return { ...tokens, user: this.userResponse(user) };
   }
 
@@ -315,5 +316,23 @@ export class AuthService {
       // Ignore errors on logout
     }
     return { message: 'Logged out' };
+  }
+
+  // ─── Change Password (authenticated) ──────────────────────────────────────
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new BadRequestException({ error: 'Current password is incorrect', code: 'WRONG_PASSWORD' });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.userRepo.save(user);
+    return { message: 'Password changed successfully' };
   }
 }

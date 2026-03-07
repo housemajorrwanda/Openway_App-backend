@@ -162,11 +162,14 @@ export class TrafficScheduler implements OnModuleInit {
         );
 
         if (newLevel === 'high') {
-          await this.notifications.broadcast({
-            title: 'Heavy traffic alert',
-            body: `Heavy traffic at ${loc.name} — expect ${loc.delayMinutes ?? 'some'}+ min delay.`,
-            data: { type: 'TRAFFIC_ALERT', locationId: loc.id, level: newLevel },
-          });
+          await this.notifications.broadcast(
+            {
+              title: 'Heavy traffic alert',
+              body: `Heavy traffic at ${loc.name} — expect ${loc.delayMinutes ?? 'some'}+ min delay.`,
+              data: { type: 'TRAFFIC_ALERT', locationId: loc.id, level: newLevel },
+            },
+            'trafficUpdates',
+          );
         }
       }
     }
