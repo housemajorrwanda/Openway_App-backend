@@ -1,8 +1,9 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
-  OneToOne,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -16,9 +17,12 @@ export class Insurance {
   @Column({ name: 'user_id' })
   userId: string;
 
-  @OneToOne(() => User, (user) => user.insurance, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.insurances, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
   @Column({ name: 'company_name', length: 150 })
   companyName: string;

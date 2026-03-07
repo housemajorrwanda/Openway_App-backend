@@ -13,6 +13,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateFamilyContactDto } from './dto/create-family-contact.dto';
 import { UpsertInsuranceDto } from './dto/upsert-insurance.dto';
+import { UpdateFamilyContactDto } from './dto/update-family-contact.dto';
+import { UpdateInsuranceDto } from './dto/update-insurance.dto';
 import { UpdateNotificationPrefsDto } from './dto/update-notification-prefs.dto';
 import { DEFAULT_NOTIFICATION_PREFS } from '../database/entities/user.entity';
 
@@ -35,10 +37,10 @@ export class UserService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
 
-    const [vehicle, familyContacts, insurance] = await Promise.all([
+    const [vehicle, familyContacts, insurances] = await Promise.all([
       this.vehicleRepo.findOne({ where: { userId } }),
       this.contactRepo.find({ where: { userId }, order: { createdAt: 'ASC' } }),
-      this.insuranceRepo.findOne({ where: { userId } }),
+      this.insuranceRepo.find({ where: { userId }, order: { createdAt: 'ASC' } }),
     ]);
 
     return {
@@ -52,9 +54,12 @@ export class UserService {
         ? { make: vehicle.make, model: vehicle.model, licensePlate: vehicle.licensePlate }
         : null,
       familyContacts: familyContacts.map((c) => ({ id: c.id, name: c.name, phone: c.phone })),
-      insurance: insurance
-        ? { companyName: insurance.companyName, startDate: insurance.startDate, endDate: insurance.endDate }
-        : null,
+      insurances: insurances.map((ins) => ({
+        id: ins.id,
+        companyName: ins.companyName,
+        startDate: ins.startDate,
+        endDate: ins.endDate,
+      })),
     };
   }
 
@@ -113,6 +118,17 @@ export class UserService {
     return { id: saved.id, name: saved.name, phone: saved.phone };
   }
 
+  async updateFamilyContact(userId: string, contactId: string, dto: UpdateFamilyContactDto) {
+    const contact = await this.contactRepo.findOne({ where: { id: contactId } });
+    if (!contact || contact.userId !== userId) {
+      throw new NotFoundException({ error: 'Contact not found', code: 'CONTACT_NOT_FOUND' });
+    }
+    if (dto.name !== undefined) contact.name = dto.name;
+    if (dto.phone !== undefined) contact.phone = dto.phone;
+    const saved = await this.contactRepo.save(contact);
+    return { id: saved.id, name: saved.name, phone: saved.phone };
+  }
+
   async deleteFamilyContact(userId: string, contactId: string) {
     const contact = await this.contactRepo.findOne({ where: { id: contactId } });
     if (!contact || contact.userId !== userId) {
@@ -124,25 +140,44 @@ export class UserService {
 
   // --- Insurance ------------------------------------------------------------
 
-  async upsertInsurance(userId: string, dto: UpsertInsuranceDto) {
-    let insurance = await this.insuranceRepo.findOne({ where: { userId } });
-    if (!insurance) {
-      insurance = this.insuranceRepo.create({ userId });
-    }
-    insurance.companyName = dto.companyName;
-    insurance.startDate = dto.startDate;
-    insurance.endDate = dto.endDate;
-    const saved = await this.insuranceRepo.save(insurance);
-    return {
-      companyName: saved.companyName,
-      startDate: saved.startDate,
-      endDate: saved.endDate,
-    };
+  async getInsurances(userId: string) {
+    const insurances = await this.insuranceRepo.find({ where: { userId }, order: { createdAt: 'ASC' } });
+    return insurances.map((ins) => ({
+      id: ins.id,
+      companyName: ins.companyName,
+      startDate: ins.startDate,
+      endDate: ins.endDate,
+    }));
   }
 
-  async deleteInsurance(userId: string) {
-    const insurance = await this.insuranceRepo.findOne({ where: { userId } });
-    if (!insurance) throw new NotFoundException({ error: 'Insurance not found', code: 'INSURANCE_NOT_FOUND' });
+  async addInsurance(userId: string, dto: UpsertInsuranceDto) {
+    const insurance = this.insuranceRepo.create({
+      userId,
+      companyName: dto.companyName,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+    });
+    const saved = await this.insuranceRepo.save(insurance);
+    return { id: saved.id, companyName: saved.companyName, startDate: saved.startDate, endDate: saved.endDate };
+  }
+
+  async updateInsurance(userId: string, insuranceId: string, dto: UpdateInsuranceDto) {
+    const insurance = await this.insuranceRepo.findOne({ where: { id: insuranceId } });
+    if (!insurance || insurance.userId !== userId) {
+      throw new NotFoundException({ error: 'Insurance not found', code: 'INSURANCE_NOT_FOUND' });
+    }
+    if (dto.companyName !== undefined) insurance.companyName = dto.companyName;
+    if (dto.startDate !== undefined) insurance.startDate = dto.startDate;
+    if (dto.endDate !== undefined) insurance.endDate = dto.endDate;
+    const saved = await this.insuranceRepo.save(insurance);
+    return { id: saved.id, companyName: saved.companyName, startDate: saved.startDate, endDate: saved.endDate };
+  }
+
+  async deleteInsurance(userId: string, insuranceId: string) {
+    const insurance = await this.insuranceRepo.findOne({ where: { id: insuranceId } });
+    if (!insurance || insurance.userId !== userId) {
+      throw new NotFoundException({ error: 'Insurance not found', code: 'INSURANCE_NOT_FOUND' });
+    }
     await this.insuranceRepo.remove(insurance);
     return { message: 'Insurance removed' };
   }

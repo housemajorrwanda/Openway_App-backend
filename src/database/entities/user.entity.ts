@@ -73,6 +73,6 @@ export class User {
   @OneToMany(() => FamilyContact, (fc) => fc.user, { cascade: true })
   familyContacts: FamilyContact[];
 
-  @OneToOne(() => Insurance, (ins) => ins.user, { cascade: true })
-  insurance: Insurance;
+  @OneToMany(() => Insurance, (ins) => ins.user, { cascade: true })
+  insurances: Insurance[];
 }

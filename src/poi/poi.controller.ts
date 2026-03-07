@@ -38,18 +38,11 @@ export class PoiController {
   @Get('nearby')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Get nearby gas stations, restaurants, or garages',
-    description:
-      'Returns POIs near the given coordinates, sorted by distance. Optionally filter by type.',
+    summary: 'Get all nearby POIs (gas stations, restaurants, garages)',
+    description: 'Returns all POI types near the given coordinates, sorted by distance.',
   })
   @ApiQuery({ name: 'lat', required: true, type: Number, example: -1.957 })
   @ApiQuery({ name: 'lng', required: true, type: Number, example: 30.092 })
-  @ApiQuery({
-    name: 'type',
-    required: false,
-    enum: ['gas_station', 'restaurant', 'garage'],
-    description: 'Filter by POI type',
-  })
   @ApiQuery({
     name: 'radius',
     required: false,
@@ -57,33 +50,62 @@ export class PoiController {
     example: 5000,
     description: 'Radius in metres (default 5000)',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Nearby POIs sorted by distance',
-    schema: {
-      example: [
-        {
-          id: 'uuid',
-          name: 'Total Energies Remera',
-          type: 'gas_station',
-          address: 'KG 9 Ave, Remera',
-          latitude: -1.957,
-          longitude: 30.094,
-          phone: '+250788123456',
-          openingHours: 'Mon-Sun 06:00-22:00',
-          distanceMeters: 320,
-        },
-      ],
-    },
-  })
+  @ApiResponse({ status: 200, description: 'Nearby POIs sorted by distance' })
   getNearby(
     @Query('lat', ParseFloatPipe) lat: number,
     @Query('lng', ParseFloatPipe) lng: number,
-    @Query('type') type?: string,
     @Query('radius') radius?: string,
   ) {
     const radiusMeters = radius ? parseInt(radius, 10) : 5000;
-    return this.service.getNearby(lat, lng, type as PoiType | undefined, radiusMeters);
+    return this.service.getNearby(lat, lng, undefined, radiusMeters);
+  }
+
+  @Get('gas-stations')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get nearby gas stations' })
+  @ApiQuery({ name: 'lat', required: true, type: Number, example: -1.957 })
+  @ApiQuery({ name: 'lng', required: true, type: Number, example: 30.092 })
+  @ApiQuery({ name: 'radius', required: false, type: Number, example: 5000, description: 'Radius in metres (default 5000)' })
+  @ApiResponse({ status: 200, description: 'Nearby gas stations sorted by distance' })
+  getGasStations(
+    @Query('lat', ParseFloatPipe) lat: number,
+    @Query('lng', ParseFloatPipe) lng: number,
+    @Query('radius') radius?: string,
+  ) {
+    const radiusMeters = radius ? parseInt(radius, 10) : 5000;
+    return this.service.getNearby(lat, lng, 'gas_station', radiusMeters);
+  }
+
+  @Get('restaurants')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get nearby restaurants' })
+  @ApiQuery({ name: 'lat', required: true, type: Number, example: -1.957 })
+  @ApiQuery({ name: 'lng', required: true, type: Number, example: 30.092 })
+  @ApiQuery({ name: 'radius', required: false, type: Number, example: 5000, description: 'Radius in metres (default 5000)' })
+  @ApiResponse({ status: 200, description: 'Nearby restaurants sorted by distance' })
+  getRestaurants(
+    @Query('lat', ParseFloatPipe) lat: number,
+    @Query('lng', ParseFloatPipe) lng: number,
+    @Query('radius') radius?: string,
+  ) {
+    const radiusMeters = radius ? parseInt(radius, 10) : 5000;
+    return this.service.getNearby(lat, lng, 'restaurant', radiusMeters);
+  }
+
+  @Get('garages')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get nearby garages / car repair shops' })
+  @ApiQuery({ name: 'lat', required: true, type: Number, example: -1.957 })
+  @ApiQuery({ name: 'lng', required: true, type: Number, example: 30.092 })
+  @ApiQuery({ name: 'radius', required: false, type: Number, example: 5000, description: 'Radius in metres (default 5000)' })
+  @ApiResponse({ status: 200, description: 'Nearby garages sorted by distance' })
+  getGarages(
+    @Query('lat', ParseFloatPipe) lat: number,
+    @Query('lng', ParseFloatPipe) lng: number,
+    @Query('radius') radius?: string,
+  ) {
+    const radiusMeters = radius ? parseInt(radius, 10) : 5000;
+    return this.service.getNearby(lat, lng, 'garage', radiusMeters);
   }
 
   // ─── Admin endpoints ───────────────────────────────────────────────────────

@@ -24,7 +24,9 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { SavePushTokenDto } from './dto/save-push-token.dto';
 import { CreateFamilyContactDto } from './dto/create-family-contact.dto';
+import { UpdateFamilyContactDto } from './dto/update-family-contact.dto';
 import { UpsertInsuranceDto } from './dto/upsert-insurance.dto';
+import { UpdateInsuranceDto } from './dto/update-insurance.dto';
 import { UpdateNotificationPrefsDto } from './dto/update-notification-prefs.dto';
 import { UserService } from './user.service';
 
@@ -56,7 +58,7 @@ export class UserController {
         role: 'user',
         vehicle: { make: 'Toyota', model: 'RAV4', licensePlate: 'RAB 123A' },
         familyContacts: [{ id: 'uuid', name: 'Marie', phone: '+250788000000' }],
-        insurance: { companyName: 'SONARWA', startDate: '2026-01-01', endDate: '2027-01-01' },
+        insurances: [{ id: 'uuid', companyName: 'SONARWA', startDate: '2026-01-01', endDate: '2027-01-01' }],
       },
     },
   })
@@ -121,6 +123,18 @@ export class UserController {
     return this.userService.addFamilyContact(user.sub, dto);
   }
 
+  @Patch('family-contacts/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update a family contact' })
+  @ApiResponse({ status: 200, schema: { example: { id: 'uuid', name: 'Marie', phone: '+250788000000' } } })
+  updateFamilyContact(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) contactId: string,
+    @Body() dto: UpdateFamilyContactDto,
+  ) {
+    return this.userService.updateFamilyContact(user.sub, contactId, dto);
+  }
+
   @Delete('family-contacts/:id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a family contact' })
@@ -134,26 +148,52 @@ export class UserController {
 
   // --- Insurance ------------------------------------------------------------
 
-  @Post('insurance')
+  @Get('insurance')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Save / update insurance details',
-    description: 'Creates or replaces the insurance record for the authenticated user.',
-  })
+  @ApiOperation({ summary: 'Get all insurance records' })
   @ApiResponse({
     status: 200,
-    schema: { example: { companyName: 'SONARWA', startDate: '2026-01-01', endDate: '2027-01-01' } },
+    schema: { example: [{ id: 'uuid', companyName: 'SONARWA', startDate: '2026-01-01', endDate: '2027-01-01' }] },
   })
-  upsertInsurance(@CurrentUser() user: JwtPayload, @Body() dto: UpsertInsuranceDto) {
-    return this.userService.upsertInsurance(user.sub, dto);
+  getInsurances(@CurrentUser() user: JwtPayload) {
+    return this.userService.getInsurances(user.sub);
   }
 
-  @Delete('insurance')
+  @Post('insurance')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Add an insurance record' })
+  @ApiResponse({
+    status: 201,
+    schema: { example: { id: 'uuid', companyName: 'SONARWA', startDate: '2026-01-01', endDate: '2027-01-01' } },
+  })
+  addInsurance(@CurrentUser() user: JwtPayload, @Body() dto: UpsertInsuranceDto) {
+    return this.userService.addInsurance(user.sub, dto);
+  }
+
+  @Patch('insurance/:id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove insurance details' })
+  @ApiOperation({ summary: 'Update an insurance record' })
+  @ApiResponse({
+    status: 200,
+    schema: { example: { id: 'uuid', companyName: 'SONARWA', startDate: '2026-01-01', endDate: '2027-01-01' } },
+  })
+  updateInsurance(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) insuranceId: string,
+    @Body() dto: UpdateInsuranceDto,
+  ) {
+    return this.userService.updateInsurance(user.sub, insuranceId, dto);
+  }
+
+  @Delete('insurance/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete an insurance record' })
   @ApiResponse({ status: 200, schema: { example: { message: 'Insurance removed' } } })
-  deleteInsurance(@CurrentUser() user: JwtPayload) {
-    return this.userService.deleteInsurance(user.sub);
+  deleteInsurance(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) insuranceId: string,
+  ) {
+    return this.userService.deleteInsurance(user.sub, insuranceId);
   }
 
   // --- Notification Preferences (Settings) ----------------------------------
