@@ -1,13 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { User } from '../../database/entities/user.entity';
+import { User, NotificationPreferences } from '../../database/entities/user.entity';
 
 export interface PushMessage {
   title: string;
   body: string;
   data?: Record<string, unknown>;
 }
+
+/** Pass one of these keys to skip users who have that pref toggled off */
+export type NotificationPrefKey = keyof NotificationPreferences;
 
 interface ExpoMessage {
   to: string;
@@ -28,39 +31,73 @@ export class NotificationService {
     private readonly userRepo: Repository<User>,
   ) {}
 
-  // Send to a single user by userId
-  async sendToUser(userId: string, message: PushMessage): Promise<void> {
+  /**
+   * Send to a single user by userId.
+   * If prefKey is provided, the notification is skipped if the user has that pref disabled.
+   */
+  async sendToUser(
+    userId: string,
+    message: PushMessage,
+    prefKey?: NotificationPrefKey,
+  ): Promise<void> {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'expoPushToken'],
+      select: ['id', 'expoPushToken', 'notificationPrefs'],
     });
     if (!user?.expoPushToken) return;
+
+    // Skip if user has disabled this notification type
+    if (prefKey && user.notificationPrefs?.[prefKey] === false) return;
+
     await this.sendRaw([user.expoPushToken], message);
   }
 
-  // Send to multiple users by userIds (e.g. traffic broadcast)
-  async sendToUsers(userIds: string[], message: PushMessage): Promise<void> {
+  /**
+   * Send to multiple users by userIds.
+   * If prefKey is provided, only users with that pref enabled receive it.
+   */
+  async sendToUsers(
+    userIds: string[],
+    message: PushMessage,
+    prefKey?: NotificationPrefKey,
+  ): Promise<void> {
     if (!userIds.length) return;
     const users = await this.userRepo.find({
       where: { id: In(userIds) },
-      select: ['id', 'expoPushToken'],
+      select: ['id', 'expoPushToken', 'notificationPrefs'],
     });
     const tokens = users
-      .map((u) => u.expoPushToken)
-      .filter((t): t is string => !!t);
+      .filter((u) => {
+        if (!u.expoPushToken) return false;
+        if (prefKey && u.notificationPrefs?.[prefKey] === false) return false;
+        return true;
+      })
+      .map((u) => u.expoPushToken as string);
     if (!tokens.length) return;
     await this.sendRaw(tokens, message);
   }
 
-  // Send to ALL users who have a push token (e.g. traffic/weather broadcast)
-  async broadcast(message: PushMessage): Promise<void> {
-    const users = await this.userRepo
+  /**
+   * Broadcast to ALL users who have a push token.
+   * If prefKey is provided, only users with that pref enabled receive it.
+   */
+  async broadcast(message: PushMessage, prefKey?: NotificationPrefKey): Promise<void> {
+    const qb = this.userRepo
       .createQueryBuilder('u')
-      .select('u.expo_push_token', 'token')
-      .where('u.expo_push_token IS NOT NULL')
-      .getRawMany<{ token: string }>();
+      .select(['u.expoPushToken'])
+      .where('u.expo_push_token IS NOT NULL');
 
-    const tokens = users.map((u) => u.token);
+    if (prefKey) {
+      // JSONB check: notification_prefs->>'prefKey' != 'false'  (default true when null)
+      qb.andWhere(
+        `(u.notification_prefs->>'${prefKey}' IS NULL OR u.notification_prefs->>'${prefKey}' != 'false')`,
+      );
+    }
+
+    const users = await qb.getMany();
+    const tokens = users
+      .map((u) => u.expoPushToken)
+      .filter((t): t is string => !!t);
     if (!tokens.length) return;
 
     // Expo allows max 100 per request — chunk accordingly

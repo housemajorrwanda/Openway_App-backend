@@ -65,11 +65,15 @@ export class TripScheduler {
 
     for (const trip of upcoming) {
       this.logger.log(`Sending departure reminder for trip ${trip.id}`);
-      await this.notifications.sendToUser(trip.userId, {
-        title: '🕐 Time to leave!',
-        body: `Your trip to ${trip.destinationName} starts in 15 minutes.`,
-        data: { type: 'TRIP_REMINDER', tripId: trip.id },
-      });
+      await this.notifications.sendToUser(
+        trip.userId,
+        {
+          title: '🕐 Time to leave!',
+          body: `Your trip to ${trip.destinationName} starts in 15 minutes.`,
+          data: { type: 'TRIP_REMINDER', tripId: trip.id },
+        },
+        'trafficUpdates',
+      );
     }
   }
 
@@ -112,11 +116,15 @@ export class TripScheduler {
         ? trip.departureTime.toTimeString().slice(0, 5)
         : '';
 
-      await this.notifications.sendToUser(trip.userId, {
-        title: '🚦 Traffic ahead before your trip',
-        body: `Traffic at ${names}${delayText}. Consider leaving earlier for your ${departureStr} trip to ${trip.destinationName}.`,
-        data: { type: 'PRE_TRIP_TRAFFIC_ALERT', tripId: trip.id },
-      });
+      await this.notifications.sendToUser(
+        trip.userId,
+        {
+          title: '🚦 Traffic ahead before your trip',
+          body: `Traffic at ${names}${delayText}. Consider leaving earlier for your ${departureStr} trip to ${trip.destinationName}.`,
+          data: { type: 'PRE_TRIP_TRAFFIC_ALERT', tripId: trip.id },
+        },
+        'trafficUpdates',
+      );
 
       this.logger.log(`Pre-departure traffic alert for trip ${trip.id}: ${names}`);
     }
@@ -161,15 +169,19 @@ export class TripScheduler {
       const maxDelay = Math.max(...affectedHotspots.map((h) => h.delayMinutes ?? 0));
       const delayText = maxDelay > 0 ? ` (~${maxDelay} min delay)` : '';
 
-      await this.notifications.sendToUser(trip.userId, {
-        title: '🚦 Heavy traffic on your route',
-        body: `Heavy traffic at ${names}${delayText}. Consider an alternate route.`,
-        data: {
-          type: 'TRIP_TRAFFIC_ALERT',
-          tripId: trip.id,
-          hotspots: affectedHotspots.map((h) => h.id),
+      await this.notifications.sendToUser(
+        trip.userId,
+        {
+          title: '🚦 Heavy traffic on your route',
+          body: `Heavy traffic at ${names}${delayText}. Consider an alternate route.`,
+          data: {
+            type: 'TRIP_TRAFFIC_ALERT',
+            tripId: trip.id,
+            hotspots: affectedHotspots.map((h) => h.id),
+          },
         },
-      });
+        'trafficUpdates',
+      );
 
       this.logger.log(`Traffic alert sent to user ${trip.userId} for trip ${trip.id}: ${names}`);
     }

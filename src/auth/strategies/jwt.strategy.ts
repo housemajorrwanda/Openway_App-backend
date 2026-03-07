@@ -53,6 +53,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         code: 'USER_NOT_FOUND',
       });
     }
-    return payload;
+    return { ...payload, role: user.role };
   }
 }

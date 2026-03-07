@@ -1,23 +1,63 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   ParseFloatPipe,
-  ParseIntPipe,
+  ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
   UseGuards,
-  Optional,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
+  ApiProperty,
   ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { IsNumber, IsString, MaxLength, Min } from 'class-validator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { ParkingService } from './parking.service';
+import { UpdateParkingDto } from './dto/update-parking.dto';
+
+class CreateParkingSpotDto {
+  @ApiProperty({ example: 'Kimihurura Parking' })
+  @IsString()
+  @MaxLength(100)
+  name: string;
+
+  @ApiProperty({ example: -1.957 })
+  @IsNumber()
+  latitude: number;
+
+  @ApiProperty({ example: 30.092 })
+  @IsNumber()
+  longitude: number;
+
+  @ApiProperty({ example: 80 })
+  @IsNumber()
+  @Min(1)
+  totalSpots: number;
+
+  @ApiProperty({ example: 40 })
+  @IsNumber()
+  @Min(0)
+  openSpots: number;
+
+  @ApiProperty({ example: 500 })
+  @IsNumber()
+  @Min(0)
+  priceRwf: number;
+}
 
 @ApiTags('Parking')
 @ApiBearerAuth('access-token')
@@ -70,5 +110,38 @@ export class ParkingController {
   ) {
     const radiusMeters = radius ? parseInt(radius, 10) : 5000;
     return this.parkingService.getNearby(lat, lng, radiusMeters);
+  }
+
+  // ─── Admin endpoints ───────────────────────────────────────────────────────
+
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: '[Admin] Add a new parking spot' })
+  @ApiBody({ type: CreateParkingSpotDto })
+  createSpot(@Body() dto: CreateParkingSpotDto) {
+    return this.parkingService.createSpot(dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[Admin] Update parking spot (open spots, price, etc.)' })
+  updateSpot(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateParkingDto,
+  ) {
+    return this.parkingService.updateSpot(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '[Admin] Delete a parking spot' })
+  deleteSpot(@Param('id', ParseUUIDPipe) id: string) {
+    return this.parkingService.deleteSpot(id);
   }
 }

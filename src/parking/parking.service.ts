@@ -1,7 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ParkingSpot } from '../database/entities/parking-spot.entity';
+import { UpdateParkingDto } from './dto/update-parking.dto';
+
+export interface CreateParkingDto {
+  name: string;
+  latitude: number;
+  longitude: number;
+  totalSpots: number;
+  openSpots: number;
+  priceRwf: number;
+}
 
 @Injectable()
 export class ParkingService {
@@ -55,5 +65,30 @@ export class ParkingService {
       .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
     return { spots: nearby };
+  }
+
+  // ─── Admin methods ─────────────────────────────────────────────────────────
+
+  async createSpot(dto: CreateParkingDto): Promise<ParkingSpot> {
+    const spot = this.parkingRepo.create(dto);
+    return this.parkingRepo.save(spot);
+  }
+
+  async updateSpot(id: string, dto: UpdateParkingDto): Promise<ParkingSpot> {
+    const spot = await this.parkingRepo.findOne({ where: { id } });
+    if (!spot) throw new NotFoundException({ error: 'Parking spot not found', code: 'PARKING_NOT_FOUND' });
+    if (dto.name !== undefined) spot.name = dto.name;
+    if (dto.latitude !== undefined) spot.latitude = dto.latitude;
+    if (dto.longitude !== undefined) spot.longitude = dto.longitude;
+    if (dto.totalSpots !== undefined) spot.totalSpots = dto.totalSpots;
+    if (dto.openSpots !== undefined) spot.openSpots = dto.openSpots;
+    if (dto.priceRwf !== undefined) spot.priceRwf = dto.priceRwf;
+    return this.parkingRepo.save(spot);
+  }
+
+  async deleteSpot(id: string): Promise<void> {
+    const spot = await this.parkingRepo.findOne({ where: { id } });
+    if (!spot) throw new NotFoundException({ error: 'Parking spot not found', code: 'PARKING_NOT_FOUND' });
+    await this.parkingRepo.remove(spot);
   }
 }
