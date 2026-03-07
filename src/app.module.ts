@@ -22,7 +22,6 @@ import { Place } from './database/entities/place.entity';
 import { Otp } from './database/entities/otp.entity';
 import { TokenBlacklist } from './database/entities/token-blacklist.entity';
 import { RoadClosure } from './database/entities/road-closure.entity';
-import { PointOfInterest } from './database/entities/point-of-interest.entity';
 import { FamilyContact } from './database/entities/family-contact.entity';
 import { Insurance } from './database/entities/insurance.entity';
 
@@ -50,7 +49,6 @@ import { Insurance } from './database/entities/insurance.entity';
             TokenBlacklist,
             Otp,
             RoadClosure,
-            PointOfInterest,
             FamilyContact,
             Insurance,
           ],

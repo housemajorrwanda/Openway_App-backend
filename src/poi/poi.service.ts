@@ -1,80 +1,67 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { PointOfInterest, PoiType } from '../database/entities/point-of-interest.entity';
-import { CreatePoiDto } from './dto/create-poi.dto';
-import { UpdatePoiDto } from './dto/update-poi.dto';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+const PLACE_TYPE_MAP: Record<string, string> = {
+  gas_station: 'gas_station',
+  restaurant: 'restaurant',
+  garage: 'car_repair',
+};
 
 @Injectable()
 export class PoiService {
-  constructor(
-    @InjectRepository(PointOfInterest)
-    private readonly repo: Repository<PointOfInterest>,
-  ) {}
+  private readonly apiKey: string;
 
-  private haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371000;
-    const toRad = (d: number) => (d * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  constructor(private readonly configService: ConfigService) {
+    this.apiKey = this.configService.get<string>('GOOGLE_MAPS_API_KEY') ?? '';
   }
 
-  async getNearby(lat: number, lng: number, type?: PoiType, radiusMeters: number = 5000) {
-    const where = type ? { type } : {};
-    const pois = await this.repo.find({ where });
+  async getNearby(lat: number, lng: number, type?: string, radiusMeters: number = 5000) {
+    const googleType = type ? PLACE_TYPE_MAP[type] ?? type : undefined;
+    const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
+    url.searchParams.set('location', `${lat},${lng}`);
+    url.searchParams.set('radius', String(radiusMeters));
+    url.searchParams.set('key', this.apiKey);
+    if (googleType) url.searchParams.set('type', googleType);
 
-    return pois
-      .map((poi) => ({
-        id: poi.id,
-        name: poi.name,
-        type: poi.type,
-        description: poi.description,
-        address: poi.address,
-        latitude: poi.latitude,
-        longitude: poi.longitude,
-        phone: poi.phone,
-        openingHours: poi.openingHours,
-        distanceMeters: Math.round(this.haversineMeters(lat, lng, poi.latitude, poi.longitude)),
-      }))
-      .filter((p) => p.distanceMeters <= radiusMeters)
-      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      throw new InternalServerErrorException({ error: 'Google Places request failed', code: 'PLACES_ERROR' });
+    }
+
+    const data = await res.json() as { status: string; results: GooglePlace[] };
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new InternalServerErrorException({ error: `Google Places error: ${data.status}`, code: 'PLACES_ERROR' });
+    }
+
+    return (data.results ?? []).map((place) => ({
+      placeId: place.place_id,
+      name: place.name,
+      type: type ?? this.resolveType(place.types ?? []),
+      address: place.vicinity ?? null,
+      latitude: place.geometry.location.lat,
+      longitude: place.geometry.location.lng,
+      rating: place.rating ?? null,
+      openNow: place.opening_hours?.open_now ?? null,
+      icon: place.icon ?? null,
+    }));
   }
 
-  async create(dto: CreatePoiDto): Promise<PointOfInterest> {
-    const poi = this.repo.create({
-      name: dto.name,
-      type: dto.type,
-      description: dto.description ?? null,
-      address: dto.address ?? null,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
-      phone: dto.phone ?? null,
-      openingHours: dto.openingHours ?? null,
-    });
-    return this.repo.save(poi);
+  private resolveType(types: string[]): string {
+    if (types.includes('gas_station')) return 'gas_station';
+    if (types.includes('restaurant')) return 'restaurant';
+    if (types.includes('car_repair')) return 'garage';
+    return types[0] ?? 'unknown';
   }
+}
 
-  async update(id: string, dto: UpdatePoiDto): Promise<PointOfInterest> {
-    const poi = await this.repo.findOne({ where: { id } });
-    if (!poi) throw new NotFoundException({ error: 'POI not found', code: 'POI_NOT_FOUND' });
-    if (dto.name !== undefined) poi.name = dto.name;
-    if (dto.type !== undefined) poi.type = dto.type as PoiType;
-    if (dto.description !== undefined) poi.description = dto.description;
-    if (dto.address !== undefined) poi.address = dto.address;
-    if (dto.latitude !== undefined) poi.latitude = dto.latitude;
-    if (dto.longitude !== undefined) poi.longitude = dto.longitude;
-    if (dto.phone !== undefined) poi.phone = dto.phone;
-    if (dto.openingHours !== undefined) poi.openingHours = dto.openingHours;
-    return this.repo.save(poi);
-  }
-
-  async remove(id: string): Promise<void> {
-    const poi = await this.repo.findOne({ where: { id } });
-    if (!poi) throw new NotFoundException({ error: 'POI not found', code: 'POI_NOT_FOUND' });
-    await this.repo.remove(poi);
-  }
+interface GooglePlace {
+  place_id: string;
+  name: string;
+  vicinity?: string;
+  types?: string[];
+  geometry: { location: { lat: number; lng: number } };
+  rating?: number;
+  opening_hours?: { open_now: boolean };
+  icon?: string;
 }
