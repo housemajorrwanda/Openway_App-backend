@@ -35,7 +35,11 @@ export class UserService {
 
   async getProfile(userId: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    if (!user)
+      throw new NotFoundException({
+        error: 'User not found',
+        code: 'USER_NOT_FOUND',
+      });
 
     const [vehicle, familyContacts, insurances] = await Promise.all([
       this.vehicleRepo.findOne({ where: { userId } }),
@@ -51,7 +55,11 @@ export class UserService {
       avatarUrl: user.avatarUrl,
       role: user.role,
       vehicle: vehicle
-        ? { make: vehicle.make, model: vehicle.model, licensePlate: vehicle.licensePlate }
+        ? {
+            make: vehicle.make,
+            model: vehicle.model,
+            licensePlate: vehicle.licensePlate,
+          }
         : null,
       familyContacts: familyContacts.map((c) => ({ id: c.id, name: c.name, phone: c.phone })),
       insurances: insurances.map((ins) => ({
@@ -65,7 +73,11 @@ export class UserService {
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    if (!user)
+      throw new NotFoundException({
+        error: 'User not found',
+        code: 'USER_NOT_FOUND',
+      });
 
     if (dto.firstName !== undefined) user.firstName = dto.firstName;
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
@@ -84,7 +96,11 @@ export class UserService {
 
   async savePushToken(userId: string, token: string) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+    if (!user)
+      throw new NotFoundException({
+        error: 'User not found',
+        code: 'USER_NOT_FOUND',
+      });
     user.expoPushToken = token;
     await this.userRepo.save(user);
     return { message: 'Push token saved' };
@@ -118,10 +134,19 @@ export class UserService {
     return { id: saved.id, name: saved.name, phone: saved.phone };
   }
 
-  async updateFamilyContact(userId: string, contactId: string, dto: UpdateFamilyContactDto) {
-    const contact = await this.contactRepo.findOne({ where: { id: contactId } });
+  async updateFamilyContact(
+    userId: string,
+    contactId: string,
+    dto: UpdateFamilyContactDto,
+  ) {
+    const contact = await this.contactRepo.findOne({
+      where: { id: contactId },
+    });
     if (!contact || contact.userId !== userId) {
-      throw new NotFoundException({ error: 'Contact not found', code: 'CONTACT_NOT_FOUND' });
+      throw new NotFoundException({
+        error: 'Contact not found',
+        code: 'CONTACT_NOT_FOUND',
+      });
     }
     if (dto.name !== undefined) contact.name = dto.name;
     if (dto.phone !== undefined) contact.phone = dto.phone;
@@ -130,9 +155,14 @@ export class UserService {
   }
 
   async deleteFamilyContact(userId: string, contactId: string) {
-    const contact = await this.contactRepo.findOne({ where: { id: contactId } });
+    const contact = await this.contactRepo.findOne({
+      where: { id: contactId },
+    });
     if (!contact || contact.userId !== userId) {
-      throw new NotFoundException({ error: 'Contact not found', code: 'CONTACT_NOT_FOUND' });
+      throw new NotFoundException({
+        error: 'Contact not found',
+        code: 'CONTACT_NOT_FOUND',
+      });
     }
     await this.contactRepo.remove(contact);
     return { message: 'Contact deleted' };
@@ -216,6 +246,7 @@ export class UserService {
     if (dto.trafficUpdates !== undefined) current.trafficUpdates = dto.trafficUpdates;
     if (dto.weatherChanges !== undefined) current.weatherChanges = dto.weatherChanges;
     if (dto.parkingAvailability !== undefined) current.parkingAvailability = dto.parkingAvailability;
+    if (dto.roadClosures !== undefined) current.roadClosures = dto.roadClosures;
 
     user.notificationPrefs = current;
     await this.userRepo.save(user);

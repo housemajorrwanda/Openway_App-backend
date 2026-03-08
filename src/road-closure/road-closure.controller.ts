@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -25,6 +26,7 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 import { RoadClosureService } from './road-closure.service';
 import { CreateRoadClosureDto } from './dto/create-road-closure.dto';
 import { UpdateRoadClosureDto } from './dto/update-road-closure.dto';
+import { QueryRoadClosureDto } from './dto/query-road-closure.dto';
 
 @ApiTags('Road Closures')
 @ApiBearerAuth('access-token')
@@ -39,24 +41,27 @@ export class RoadClosureController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get active/upcoming road closures',
-    description: 'Returns all active and upcoming road closures for display on the map.',
+    description:
+      'Returns active and upcoming closures. Optionally filter by status and paginate with skip/limit.',
   })
-  @ApiResponse({ status: 200, description: 'List of active/upcoming road closures' })
-  getActive() {
-    return this.service.getActive();
+  @ApiResponse({ status: 200, description: '{ data: RoadClosure[], total: number }' })
+  getActive(@Query() query: QueryRoadClosureDto) {
+    return this.service.getActive(query);
   }
 
   // ─── Admin only ───────────────────────────────────────────────────────────
 
   @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Get all road closures including resolved',
-    description: 'Returns all road closures regardless of status.',
+    summary: '[Admin] Get all road closures including resolved',
+    description: 'Returns all road closures regardless of status, with optional status filter and pagination.',
   })
-  @ApiResponse({ status: 200, description: 'All road closures' })
-  getAll() {
-    return this.service.getAll();
+  @ApiResponse({ status: 200, description: '{ data: RoadClosure[], total: number }' })
+  getAll(@Query() query: QueryRoadClosureDto) {
+    return this.service.getAll(query);
   }
 
   @Post()
