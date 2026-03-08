@@ -43,20 +43,14 @@ export class RoadClosureService {
     const limit = Math.min(query.limit ?? 20, 100);
     const now = new Date();
 
-    let where: Parameters<typeof this.repo.findAndCount>[0]['where'];
-
-    if (query.status) {
-      // Specific status requested — return that status only (no end-time filter for resolved)
-      where = query.status === 'resolved'
-        ? { status: query.status }
-        : { status: query.status, endTime: MoreThanOrEqual(now) };
-    } else {
-      // Default: active + upcoming that haven't expired
-      where = [
-        { status: 'active' as const, endTime: MoreThanOrEqual(now) },
-        { status: 'upcoming' as const, endTime: MoreThanOrEqual(now) },
-      ];
-    }
+    const where = query.status
+      ? query.status === 'resolved'
+        ? [{ status: 'resolved' as const }]
+        : [{ status: query.status as 'active' | 'upcoming', endTime: MoreThanOrEqual(now) }]
+      : [
+          { status: 'active' as const, endTime: MoreThanOrEqual(now) },
+          { status: 'upcoming' as const, endTime: MoreThanOrEqual(now) },
+        ];
 
     const [data, total] = await this.repo.findAndCount({
       where,
