@@ -17,12 +17,14 @@ export interface NotificationPreferences {
   trafficUpdates: boolean;
   weatherChanges: boolean;
   parkingAvailability: boolean;
+  roadClosures: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   trafficUpdates: true,
   weatherChanges: true,
   parkingAvailability: true,
+  roadClosures: true,
 };
 
 @Entity('users')
@@ -48,7 +50,12 @@ export class User {
   @Column({ name: 'avatar_url', type: 'varchar', length: 500, nullable: true })
   avatarUrl: string | null;
 
-  @Column({ name: 'expo_push_token', type: 'varchar', length: 200, nullable: true })
+  @Column({
+    name: 'expo_push_token',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
   expoPushToken: string | null;
 
   @Column({ type: 'varchar', length: 10, default: 'user' })

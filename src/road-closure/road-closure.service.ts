@@ -4,12 +4,15 @@ import { MoreThanOrEqual, Repository } from 'typeorm';
 import { RoadClosure } from '../database/entities/road-closure.entity';
 import { CreateRoadClosureDto } from './dto/create-road-closure.dto';
 import { UpdateRoadClosureDto } from './dto/update-road-closure.dto';
+import { QueryRoadClosureDto } from './dto/query-road-closure.dto';
+import { NotificationService } from '../common/notifications/notification.service';
 
 @Injectable()
 export class RoadClosureService {
   constructor(
     @InjectRepository(RoadClosure)
     private readonly repo: Repository<RoadClosure>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(adminId: string, dto: CreateRoadClosureDto): Promise<RoadClosure> {
@@ -25,23 +28,59 @@ export class RoadClosureService {
       status: dto.status ?? 'upcoming',
       createdBy: adminId,
     });
-    return this.repo.save(closure);
+    const saved = await this.repo.save(closure);
+
+    if (saved.status === 'active') {
+      await this.notifyRoadClosed(saved);
+    }
+
+    return saved;
   }
 
-  /** Active + upcoming closures for regular users (non-resolved, end time in future) */
-  async getActive(): Promise<RoadClosure[]> {
-    return this.repo.find({
-      where: [
-        { status: 'active', endTime: MoreThanOrEqual(new Date()) },
-        { status: 'upcoming', endTime: MoreThanOrEqual(new Date()) },
-      ],
+  /** Active + upcoming closures for regular users, with optional status filter + pagination */
+  async getActive(query: QueryRoadClosureDto): Promise<{ data: RoadClosure[]; total: number }> {
+    const skip = query.skip ?? 0;
+    const limit = Math.min(query.limit ?? 20, 100);
+    const now = new Date();
+
+    let where: Parameters<typeof this.repo.findAndCount>[0]['where'];
+
+    if (query.status) {
+      // Specific status requested — return that status only (no end-time filter for resolved)
+      where = query.status === 'resolved'
+        ? { status: query.status }
+        : { status: query.status, endTime: MoreThanOrEqual(now) };
+    } else {
+      // Default: active + upcoming that haven't expired
+      where = [
+        { status: 'active' as const, endTime: MoreThanOrEqual(now) },
+        { status: 'upcoming' as const, endTime: MoreThanOrEqual(now) },
+      ];
+    }
+
+    const [data, total] = await this.repo.findAndCount({
+      where,
       order: { startTime: 'ASC' },
+      skip,
+      take: limit,
     });
+
+    return { data, total };
   }
 
-  /** All closures — admin view */
-  async getAll(): Promise<RoadClosure[]> {
-    return this.repo.find({ order: { createdAt: 'DESC' } });
+  /** All closures — admin view with optional status filter + pagination */
+  async getAll(query: QueryRoadClosureDto): Promise<{ data: RoadClosure[]; total: number }> {
+    const skip = query.skip ?? 0;
+    const limit = Math.min(query.limit ?? 20, 100);
+
+    const [data, total] = await this.repo.findAndCount({
+      ...(query.status ? { where: { status: query.status } } : {}),
+      order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    return { data, total };
   }
 
   async findOne(id: string): Promise<RoadClosure> {
@@ -52,6 +91,8 @@ export class RoadClosureService {
 
   async update(id: string, dto: UpdateRoadClosureDto): Promise<RoadClosure> {
     const closure = await this.findOne(id);
+    const previousStatus = closure.status;
+
     if (dto.title !== undefined) closure.title = dto.title;
     if (dto.reason !== undefined) closure.reason = dto.reason;
     if (dto.startLat !== undefined) closure.startLat = dto.startLat;
@@ -61,11 +102,55 @@ export class RoadClosureService {
     if (dto.startTime !== undefined) closure.startTime = new Date(dto.startTime);
     if (dto.endTime !== undefined) closure.endTime = new Date(dto.endTime);
     if (dto.status !== undefined) closure.status = dto.status;
-    return this.repo.save(closure);
+
+    const saved = await this.repo.save(closure);
+
+    // Notify only when transitioning INTO active (not on every update)
+    if (saved.status === 'active' && previousStatus !== 'active') {
+      await this.notifyRoadClosed(saved);
+    } else if (saved.status === 'resolved' && previousStatus === 'active') {
+      await this.notifyRoadReopened(saved);
+    }
+
+    return saved;
   }
 
   async remove(id: string): Promise<void> {
     const closure = await this.findOne(id);
     await this.repo.remove(closure);
+  }
+
+  /** Broadcast push notification when a road goes active (closed NOW) */
+  async notifyRoadClosed(closure: RoadClosure): Promise<void> {
+    await this.notifications.broadcast(
+      {
+        title: '🚧 Road Closed',
+        body: `${closure.title} is now closed. ${closure.reason}`,
+        data: {
+          type: 'ROAD_CLOSURE_ACTIVE',
+          closureId: closure.id,
+          startLat: closure.startLat,
+          startLng: closure.startLng,
+          endLat: closure.endLat,
+          endLng: closure.endLng,
+        },
+      },
+      'roadClosures',
+    );
+  }
+
+  /** Broadcast when a road reopens */
+  private async notifyRoadReopened(closure: RoadClosure): Promise<void> {
+    await this.notifications.broadcast(
+      {
+        title: '✅ Road Reopened',
+        body: `${closure.title} is now open again.`,
+        data: {
+          type: 'ROAD_CLOSURE_RESOLVED',
+          closureId: closure.id,
+        },
+      },
+      'roadClosures',
+    );
   }
 }
